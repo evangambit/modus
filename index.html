@@ -234,20 +234,28 @@ function select_rule(rule) {
 
 let allMolecules = [];
 
-window.onload = () => {
-	document.body.style.opacity = 1;
+function setup_problem(goal, molecules, rules) {
+	goal = new Molecule(goal, 0, false, goalMolecule);
 
-	let goal = new Molecule('MUI', 0, false, goalMolecule);
-
-	allMolecules.push(new Molecule('MI', 0, true));
-	allMolecules.push(new Molecule('MUIII', 0, true));
-	allMolecules.push(new Molecule('MMI', 0, true));
+	allMolecules = [];
+	for (let container of theoremsDiv.children) {
+		container.innerHTML = '';
+	}
+	for (let molecule of molecules) {
+		allMolecules.push(new Molecule(molecule, 0, true));
+	}
 
 	for (let molecule of allMolecules) {
 		theoremsDiv.children[molecule.depth].appendChild(molecule.htmlNode);
 	}
 
-	let rules = [
+	for (let rule of rules) {
+		rulesOfProductionDiv.appendChild(rule.div);
+	}
+}
+
+window.onload = () => {
+	setup_problem('MUI', ['MI', 'MUIII', 'MMI'], [
 		new Rule("xI", "xIU", (molecule) => {
 			let T = molecule.symbols;
 			if (T[T.length - 1] == 'I') {
@@ -290,11 +298,9 @@ window.onload = () => {
 			}
 			return r;
 		})
-	];
+	]);
 
-	for (let rule of rules) {
-		rulesOfProductionDiv.appendChild(rule.div);
-	}
+	document.body.style.opacity = 1;
 }
 </script>
 </head>
