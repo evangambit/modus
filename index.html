@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title></title>
+<style>
+html, body {
+	width: 100%;
+	height: 100%;
+	background-color: #111;
+	color: white;
+	overflow: hidden;
+}
+
+body {
+	opacity: 0;
+}
+
+atom {
+	width: 1em;
+	height: 1em;
+	border: solid white 1px;
+	box-sizing: border-box;
+}
+
+molecule {
+	display: inline-block;
+	box-sizing: border-box;
+	margin: 0.5em;
+	border: dashed white 1px;
+}
+
+molecule > * {
+	margin: 0.2em;
+	vertical-align: middle;
+	display: inline-block;
+}
+
+flex {
+	flex: 1;
+}
+
+rule > div {
+	display: flex;
+	flex-direction: column;
+}
+
+#theoremsDiv {
+	overflow-y: auto;
+}
+
+#theoremsDiv > div {
+	border-bottom: solid white 1px;
+	min-height: 2.5em;
+}
+
+</style>
+<script src="svg.js"></script>
+<script>
+
+function create_atom(color) {
+	if (['white', 'gray', 'black'].includes(color)) {
+		let atom = document.createElement('atom');
+		atom.style.backgroundColor = color;
+		atom.style.borderRadius = '0.375em';
+		atom.style.width = '0.75em';
+		atom.style.height = '0.75em';
+		return atom;
+	}
+	let atom = document.createElement('atom');
+	atom.style.backgroundColor = color;
+	return atom;
+}
+
+function create_arrow() {
+	let svg = SVG.svg(1, 1, {
+		"viewBox": "0 0 268.832 268.832"
+	});
+	let path = SVG.path({
+		"d": "M265.171,125.577l-80-80c-4.881-4.881-12.797-4.881-17.678,0c-4.882,4.882-4.882,12.796,0,17.678l58.661,58.661H12.5 c-6.903,0-12.5,5.597-12.5,12.5c0,6.902,5.597,12.5,12.5,12.5h213.654l-58.659,58.661c-4.882,4.882-4.882,12.796,0,17.678 c2.44,2.439,5.64,3.661,8.839,3.661s6.398-1.222,8.839-3.661l79.998-80C270.053,138.373,270.053,130.459,265.171,125.577z"
+	});
+	path.style.fill = 'white';
+	svg.appendChild(path);
+	svg.style.width = '1em';
+	svg.style.height = '1em';
+	svg.style.margin = '0.75em 0';
+	return svg;
+}
+
+class Rule {
+	constructor(from, to, all_legal_results) {
+		this.div = document.createElement('DIV');
+
+		this.div.style.display = 'flex';
+		this.div.style.flexDirection = 'row';
+		this.div.style.cursor = 'pointer';
+
+		this.left = new Molecule(from, 0, false, null);
+		this.right = new Molecule(to, 0, false, null);
+
+		this.middle = create_arrow();
+
+		this.div.appendChild(this.left.htmlNode);
+		this.div.appendChild(this.middle);
+		this.div.appendChild(this.right.htmlNode);
+
+		this.div.style.cursor = 'pointer';
+		this.div.onclick = () => {
+			select_rule(this);
+		}
+
+		// Maps a molecule to all molecules that can be obtained by applying this
+		// rule.
+		this.all_legal_results = all_legal_results;
+	}
+}
+
+const symbol2color = {
+	M: "red",
+	I: "green",
+	U: "blue",
+	x: "black",
+	y: "gray"
+}
+
+class Molecule {
+	constructor(symbols, depth, isClickableTheorem, htmlNode) {
+		this.depth = depth;
+		this.symbols = symbols;
+		if (!htmlNode) {
+			htmlNode = document.createElement('molecule');
+		}
+		this.htmlNode = htmlNode;
+		for (let symbol of symbols) {
+			this.htmlNode.appendChild(create_atom(symbol2color[symbol]));
+		}
+
+		if (isClickableTheorem) {
+			this.htmlNode.style.cursor = 'pointer';
+			this.htmlNode.onclick = () => {
+				select_molecule(this);
+			}
+		}
+	}
+}
+
+let selected_molecule = null;
+let selected_rule = null;
+
+const kMaxDepth = 4;
+let haveShownAlert = false;
+
+function create_theorems(rule, molecule) {
+	if (molecule.depth >= kMaxDepth) {
+		if (!haveShownAlert) {
+			alert("Woah there!  You shouldn't need to chain more than " + kMaxDepth + " rules together to solve this!");
+		}
+		return;
+	}
+
+	const molecules = allMolecules.map(x => x.symbols);
+	for (let result of rule.all_legal_results(molecule)) {
+		if (!molecules.includes(result)) {
+			let newMolecule = new Molecule(
+				result, molecule.depth + 1, true
+			);
+			allMolecules.push(newMolecule);
+
+			while (newMolecule.depth >= theoremsDiv.children.length) {
+				theoremsDiv.appendChild(document.createElement('div'));
+			}
+
+			theoremsDiv.children[newMolecule.depth].appendChild(newMolecule.htmlNode);
+		}
+	}
+}
+
+function select_molecule(molecule) {
+	selected_molecule = molecule;
+
+	if (selected_rule !== null) {
+		create_theorems(selected_rule, selected_molecule);
+		unselect_all();
+		return;
+	}
+
+	for (let container of theoremsDiv.children) {
+		for (let div of container.children) {
+			if (div !== molecule.htmlNode) {
+				div.style.backgroundColor = '#0000';
+				div.style.cursor = 'pointer';
+			} else {
+				div.style.backgroundColor = '#fff7';
+				div.style.cursor = 'default';
+			}
+		}
+	}
+}
+
+function unselect_all() {
+	selected_molecule = null;
+	selected_rule = null;
+	for (let div of rulesOfProductionDiv.children) {
+		div.style.backgroundColor = '#0000';
+		div.style.cursor = 'pointer';
+	}
+
+	for (let container of theoremsDiv.children) {
+		for (let div of container.children) {
+			div.style.backgroundColor = '#0000';
+			div.style.cursor = 'pointer';
+		}
+	}
+}
+
+function select_rule(rule) {
+	selected_rule = rule;
+
+	if (selected_molecule !== null) {
+		create_theorems(selected_rule, selected_molecule);
+		unselect_all();
+		return;
+	}
+
+	for (let div of rulesOfProductionDiv.children) {
+		if (div !== rule.div) {
+			div.style.backgroundColor = '#0000';
+			div.style.cursor = 'pointer';
+		} else {
+			div.style.backgroundColor = '#fff7';
+			div.style.cursor = 'default';
+		}
+	}
+}
+
+let allMolecules = [];
+
+window.onload = () => {
+	document.body.style.opacity = 1;
+
+	let goal = new Molecule('MUI', 0, false, goalMolecule);
+
+	allMolecules.push(new Molecule('MI', 0, true));
+	allMolecules.push(new Molecule('MUIII', 0, true));
+	allMolecules.push(new Molecule('MMI', 0, true));
+
+	for (let molecule of allMolecules) {
+		theoremsDiv.children[molecule.depth].appendChild(molecule.htmlNode);
+	}
+
+	let rules = [
+		new Rule("xI", "xIU", (molecule) => {
+			let T = molecule.symbols;
+			if (T[T.length - 1] == 'I') {
+				return [ molecule.symbols + 'U' ];
+			} else {
+				return [];
+			}
+		}),
+
+		new Rule("Mx", "Mxx", (molecule) => {
+			let T = molecule.symbols;
+			let r = [];
+			for (let i = 0; i < T.length - 1; ++i) {
+				if (T[i] === 'M') {
+					let suffix = T.slice(i + 1, T.length);
+					r.push(T.slice(0, i + 1) + suffix + suffix)
+				}
+			}
+			return r;
+		}),
+
+		new Rule("xIIIy", "xUy", (molecule) => {
+			let T = molecule.symbols;
+			let r = [];
+			for (let i = 0; i < T.length - 2; ++i) {
+				if (T.slice(i, i + 3) === 'III') {
+					r.push(T.slice(0, i) + 'U' + T.slice(i + 3, T.length));
+				}
+			}
+			return r;
+		}),
+
+		new Rule("xUUy", "xy", (molecule) => {
+			let T = molecule.symbols;
+			let r = [];
+			for (let i = 0; i < T.length - 1; ++i) {
+				if (T.slice(i, i + 2) === 'UU') {
+					r.push(T.slice(0, i) + T.slice(i + 2, T.length));
+				}
+			}
+			return r;
+		})
+	];
+
+	for (let rule of rules) {
+		rulesOfProductionDiv.appendChild(rule.div);
+	}
+}
+</script>
+</head>
+<body>
+<h2 align="center">Modus</h2>
+<div style="text-align:center;">
+	<span>Goal:</span>
+	<molecule id="goalMolecule"></molecule>
+</div>
+<div style="display:flex; height:100%;">
+	<div id="rulesOfProductionDiv" style="background-color:#333;"></div>
+	<div id="theoremsDiv" style="background-color:#333; border-left:white solid 1px; flex:1;">
+		<div></div>
+	</div>
+</div>
+</body>
+</html>
