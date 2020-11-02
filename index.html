@@ -411,10 +411,9 @@ window.onload = () => {
 	// }
 
 	setup_problem('MUI', ['MI', 'MUIII', 'MMI'], [
-		new Rule("xI", "xIU", "", (molecule) => {
-			let T = molecule.symbols;
+		new Rule("xI", "xIU", "", (T) => {
 			if (T[T.length - 1] == 'I') {
-				return [ molecule.symbols + 'U' ];
+				return [ T + 'U' ];
 			} else {
 				return [];
 			}
