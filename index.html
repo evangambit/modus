@@ -233,22 +233,30 @@ function create_theorems(rule, molecule) {
 
 	const molecules = allMolecules.map(x => x.symbols);
 	for (let result of rule.all_legal_results(molecule.symbols)) {
-		if (!molecules.includes(result)) {
-			let newMolecule = new Molecule(
-				result, molecule.depth + 1, true
-			);
-			allMolecules.push(newMolecule);
-			molecules.push(result);
+		if (molecules.includes(result)) {
+			let idx = molecules.indexOf(result);
+			let node = allMolecules[idx].htmlNode;
+			node.style.transition = '0.3s';
+			node.style.backgroundColor = '#fff';
+			setTimeout(() => {
+				node.style.backgroundColor = '#0000';
+			}, 300);
+			continue;
+		}
+		let newMolecule = new Molecule(
+			result, molecule.depth + 1, true
+		);
+		allMolecules.push(newMolecule);
+		molecules.push(result);
 
-			while (newMolecule.depth >= theoremsDiv.children.length) {
-				theoremsDiv.appendChild(document.createElement('div'));
-			}
+		while (newMolecule.depth >= theoremsDiv.children.length) {
+			theoremsDiv.appendChild(document.createElement('div'));
+		}
 
-			theoremsDiv.children[newMolecule.depth].appendChild(newMolecule.htmlNode);
+		theoremsDiv.children[newMolecule.depth].appendChild(newMolecule.htmlNode);
 
-			if (result === gGoal) {
-				win(newMolecule);
-			}
+		if (result === gGoal) {
+			win(newMolecule);
 		}
 	}
 }
@@ -361,7 +369,7 @@ window.onload = () => {
 	// 	[goal, axioms, rules] = random_problem();
 	// }
 
-	setup_problem('MUI', ['MI', 'MUIII', 'MMI'], [
+	setup_problem('MUI', ['MI', 'MUIII', 'MMI', 'MUUM'], [
 		new Rule("xI", "xIU", "", (molecule) => {
 			let T = molecule.symbols;
 			if (T[T.length - 1] == 'I') {
@@ -393,6 +401,7 @@ window.onload = () => {
 		}),
 
 		new Rule("xUUy", "xy", "", (T) => {
+			console.log(T);
 			let r = [];
 			for (let i = 0; i < T.length - 1; ++i) {
 				if (T.slice(i, i + 2) === 'UU') {
