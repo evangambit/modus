@@ -126,7 +126,7 @@ class Rule {
 			swap rules:
 				xAy  ->  yAx
 		*/
-		if (Math.random() < 0.5) {
+		if (Math.random() < 0.4) {
 			// Suffix rule
 			// xA   ->  xAB
 			let a = random_molecule();
@@ -141,7 +141,7 @@ class Rule {
 					return [];
 				}
 			});
-		} else {
+		} else if (Math.random() < 0.6) {
 			// Substitution rule
 			// xAy  ->  xBy
 			let a = random_molecule();
@@ -161,6 +161,19 @@ class Rule {
 					if (T.slice(i, i + a.length) === a) {
 						r.push(T.slice(0, i) + b + T.slice(i + a.length, n));
 					}
+				}
+				return r;
+			});
+		} else {
+			let prefix = random_molecule();
+			let from = prefix + 'x';
+			let to = from + 'x';
+			return new Rule(from, to, 'doublesuffix', (T) => {
+				const n = T.length;
+				let r = [];
+				if (T.startsWith(prefix)) {
+					let suffix = T.slice(prefix.length, T.length);
+					r.push(prefix + suffix + suffix);
 				}
 				return r;
 			});
@@ -483,6 +496,10 @@ function random_problem() {
 
 		let theorem = queue.pop_front();
 
+		if (theorem.length > 10) {
+			continue;
+		}
+
 		for (let rule of rules) {
 			for (let result of rule.all_legal_results(theorem)) {
 				let proof = theorem2proof[theorem].concat([rule.symbols]);
@@ -501,6 +518,11 @@ function random_problem() {
 
 	let proofLengths = Object.values(theorem2proof).map(x => x.length);
 	let longestProof = Math.max(...proofLengths);
+
+	if (longestProof < 3) {
+		console.log('d');
+		return [null, null, null];
+	}
 
 	let P = [{}, {}, {}];
 	for (let k in theorem2proof) {
