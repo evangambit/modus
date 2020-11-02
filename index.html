@@ -55,6 +55,7 @@ rule > div {
 
 </style>
 <script src="svg.js"></script>
+<script src="deque.js"></script>
 <script>
 
 function create_atom(color) {
@@ -69,6 +70,18 @@ function create_atom(color) {
 	let atom = document.createElement('atom');
 	atom.style.backgroundColor = color;
 	return atom;
+}
+
+Array.prototype.swap = function(i, j) {
+	let s = this[i];
+	this[i] = this[j];
+	this[j] = s;
+}
+
+Array.prototype.shuffle = function() {
+	for (let i = this.length - 1; i > 0; --i) {
+		this.swap(i, Math.random() * this.length | 0);
+	}
 }
 
 function create_arrow() {
@@ -86,8 +99,69 @@ function create_arrow() {
 	return svg;
 }
 
+const kAlphabet = 'MIU'.split('');
+
+function random_molecule(base) {
+	if (!base) {
+		base = '';
+	}
+	base += kAlphabet[Math.random() * kAlphabet.length | 0];
+	if (Math.random() < 0.5) {
+		base += kAlphabet[Math.random() * kAlphabet.length | 0];
+	}
+	return base;
+}
+
 class Rule {
-	constructor(from, to, all_legal_results) {
+	static random() {
+		/*
+		Other rule type ideas:
+			swap rules:
+				xAy  ->  yAx
+		*/
+		if (Math.random() < 0.5) {
+			// Suffix rule
+			// xA   ->  xAB
+			let a = random_molecule();
+			let b = random_molecule();
+			let from = 'x' + a;
+			let to = 'x' + a + b;
+			return new Rule(from, to, 'suffix', (T) => {
+				const n = T.length;
+				if (T.slice(n - a.length, n) == a) {
+					return [ T + b ];
+				} else {
+					return [];
+				}
+			});
+		} else {
+			// Substitution rule
+			// xAy  ->  xBy
+			let a = random_molecule();
+			let b = random_molecule();
+			while (a === b || (a.length === 1 && b.length === 1)) {
+				b = random_molecule();
+			}
+			if (Math.random() < 0.5) {
+				[a, b] = [b, a];
+			}
+			let from = 'x' + a + 'y';
+			let to = 'x' + b + 'y';
+			return new Rule(from, to, 'substitution', (T) => {
+				const n = T.length;
+				let r = [];
+				for (let i = 0; i < n - a.length + 1; ++i) {
+					if (T.slice(i, i + a.length) === a) {
+						r.push(T.slice(0, i) + b + T.slice(i + a.length, n));
+					}
+				}
+				return r;
+			});
+		}
+	}
+	constructor(from, to, type, all_legal_results) {
+		this.type = type;
+		this.symbols = from + ' -> ' + to;
 		this.div = document.createElement('DIV');
 
 		this.div.style.display = 'flex';
@@ -146,7 +220,7 @@ class Molecule {
 let selected_molecule = null;
 let selected_rule = null;
 
-const kMaxDepth = 4;
+const kMaxDepth = 9;
 let haveShownAlert = false;
 
 function create_theorems(rule, molecule) {
@@ -158,28 +232,43 @@ function create_theorems(rule, molecule) {
 	}
 
 	const molecules = allMolecules.map(x => x.symbols);
-	for (let result of rule.all_legal_results(molecule)) {
+	for (let result of rule.all_legal_results(molecule.symbols)) {
 		if (!molecules.includes(result)) {
 			let newMolecule = new Molecule(
 				result, molecule.depth + 1, true
 			);
 			allMolecules.push(newMolecule);
+			molecules.push(result);
 
 			while (newMolecule.depth >= theoremsDiv.children.length) {
 				theoremsDiv.appendChild(document.createElement('div'));
 			}
 
 			theoremsDiv.children[newMolecule.depth].appendChild(newMolecule.htmlNode);
+
+			if (result === gGoal) {
+				win(newMolecule);
+			}
 		}
 	}
+}
+
+let gtmp;
+function win(molecule) {
+	gtmp = molecule;
+	coverDiv.style.display = 'block';
+	molecule.htmlNode.style.backgroundColor = '#FFD700';
+	molecule.htmlNode.style.border = 'solid #FFD700 1px';
 }
 
 function select_molecule(molecule) {
 	selected_molecule = molecule;
 
 	if (selected_rule !== null) {
-		create_theorems(selected_rule, selected_molecule);
+		let rule = selected_rule;
+		let mole = selected_molecule;
 		unselect_all();
+		create_theorems(rule, mole);
 		return;
 	}
 
@@ -233,8 +322,10 @@ function select_rule(rule) {
 }
 
 let allMolecules = [];
+let gGoal;
 
 function setup_problem(goal, molecules, rules) {
+	gGoal = goal;
 	goal = new Molecule(goal, 0, false, goalMolecule);
 
 	allMolecules = [];
@@ -244,19 +335,34 @@ function setup_problem(goal, molecules, rules) {
 	for (let molecule of molecules) {
 		allMolecules.push(new Molecule(molecule, 0, true));
 	}
-
 	for (let molecule of allMolecules) {
 		theoremsDiv.children[molecule.depth].appendChild(molecule.htmlNode);
 	}
 
+	rulesOfProductionDiv.innerHTML = '';
 	for (let rule of rules) {
 		rulesOfProductionDiv.appendChild(rule.div);
 	}
+
+	coverDiv.style.display = 'none';
+}
+
+function sum(A) {
+	return A.reduce((a, b) => a + b, 0);
 }
 
 window.onload = () => {
+	// let [goal, axioms, rules] = random_problem();
+	// let it = 0;
+	// while (goal === null) {
+	// 	if (++it > 200) {
+	// 		return;
+	// 	}
+	// 	[goal, axioms, rules] = random_problem();
+	// }
+
 	setup_problem('MUI', ['MI', 'MUIII', 'MMI'], [
-		new Rule("xI", "xIU", (molecule) => {
+		new Rule("xI", "xIU", "", (molecule) => {
 			let T = molecule.symbols;
 			if (T[T.length - 1] == 'I') {
 				return [ molecule.symbols + 'U' ];
@@ -265,8 +371,7 @@ window.onload = () => {
 			}
 		}),
 
-		new Rule("Mx", "Mxx", (molecule) => {
-			let T = molecule.symbols;
+		new Rule("Mx", "Mxx", "", (T) => {
 			let r = [];
 			for (let i = 0; i < T.length - 1; ++i) {
 				if (T[i] === 'M') {
@@ -277,8 +382,7 @@ window.onload = () => {
 			return r;
 		}),
 
-		new Rule("xIIIy", "xUy", (molecule) => {
-			let T = molecule.symbols;
+		new Rule("xIIIy", "xUy", "", (T) => {
 			let r = [];
 			for (let i = 0; i < T.length - 2; ++i) {
 				if (T.slice(i, i + 3) === 'III') {
@@ -288,8 +392,7 @@ window.onload = () => {
 			return r;
 		}),
 
-		new Rule("xUUy", "xy", (molecule) => {
-			let T = molecule.symbols;
+		new Rule("xUUy", "xy", (T) => {
 			let r = [];
 			for (let i = 0; i < T.length - 1; ++i) {
 				if (T.slice(i, i + 2) === 'UU') {
@@ -302,6 +405,98 @@ window.onload = () => {
 
 	document.body.style.opacity = 1;
 }
+
+function random_problem() {
+	let rules = [
+		Rule.random(),
+		Rule.random(),
+		Rule.random(),
+	];
+
+	let types = new Set(rules.map(rule => rule.type));
+	if (types.size < 2) {
+		return [null, null, null];
+	}
+
+	let axioms = Array.from(new Set(new Array(3).fill(0).map(x => random_molecule())));
+
+	let theorem2proof = {};
+	let queue = new Deque();
+	for (let axiom of axioms) {
+		queue.push_back(axiom);
+		theorem2proof[axiom] = [];
+	}
+
+	for (let i = 0; i < 100; ++i) {
+		if (queue.length === 0) {
+			break;
+		}
+
+		let theorem = queue.pop_front();
+
+		for (let rule of rules) {
+			for (let result of rule.all_legal_results(theorem)) {
+				let proof = theorem2proof[theorem].concat([rule.symbols]);
+				if (result in theorem2proof) {
+					if (proof.length < theorem2proof[result].length) {
+						theorem2proof[result] = proof;
+					}
+				}
+				else {
+					theorem2proof[result] = proof;
+					queue.push_back(result);
+				}
+			}
+		}
+	}
+
+	let proofLengths = Object.values(theorem2proof).map(x => x.length);
+	let longestProof = Math.max(...proofLengths);
+
+	let P = [{}, {}, {}];
+	for (let k in theorem2proof) {
+		let proof = theorem2proof[k];
+		if (proof.length !== 3) {
+			continue;
+		}
+		for (let d = 0; d < proof.length; ++d) {
+			if (proof[d] in P[d]) {
+				P[d][proof[d]] += 1;
+			} else {
+				P[d][proof[d]] = 1;
+			}
+		}
+	}
+
+	for (let i = 0; i < P.length; ++i) {
+		let v = Object.values(P[i]);
+		if (v.length !== 3) {
+			return [null, null, null];
+		}
+		if (Math.min(...Object.values(P[0])) === 0) {
+			return [null, null, null];
+		}
+	}
+
+	console.log(Object.keys(theorem2proof).length);
+
+	for (let k in theorem2proof) {
+		let proof = theorem2proof[k];
+		if (new Set(k).size !== 3) {
+			continue;
+		}
+		if (proof.length < 3) {
+			continue;
+		}
+		if (new Set(proof).size < 2) {
+			continue;
+		}
+ 		return [k, axioms, rules];
+	}
+
+	return [null, null, null];
+}
+
 </script>
 </head>
 <body>
@@ -316,5 +511,6 @@ window.onload = () => {
 		<div></div>
 	</div>
 </div>
+<div id="coverDiv" style="position:absolute; left:0; top:0; width:100%; height:100%; display:none;"></div>
 </body>
 </html>
