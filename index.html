@@ -9,6 +9,8 @@ html, body {
 	background-color: #111;
 	color: white;
 	overflow: hidden;
+	padding: 0;
+	margin: 0;
 }
 
 body {
@@ -20,6 +22,11 @@ atom {
 	height: 1em;
 	border: solid white 1px;
 	box-sizing: border-box;
+	display: inline-block;
+}
+
+a {
+	color: #88f;
 }
 
 molecule {
@@ -49,7 +56,7 @@ rule > div {
 }
 
 #theoremsDiv > div {
-	border-bottom: solid white 1px;
+	border-bottom: solid #fff6 1px;
 	min-height: 2.5em;
 }
 
@@ -220,17 +227,7 @@ class Molecule {
 let selected_molecule = null;
 let selected_rule = null;
 
-const kMaxDepth = 9;
-let haveShownAlert = false;
-
 function create_theorems(rule, molecule) {
-	if (molecule.depth >= kMaxDepth) {
-		if (!haveShownAlert) {
-			alert("Woah there!  You shouldn't need to chain more than " + kMaxDepth + " rules together to solve this!");
-		}
-		return;
-	}
-
 	const molecules = allMolecules.map(x => x.symbols);
 	for (let result of rule.all_legal_results(molecule.symbols)) {
 		if (molecules.includes(result)) {
@@ -360,6 +357,50 @@ function sum(A) {
 }
 
 window.onload = () => {
+	instructionsDiv.innerHTML = `
+	<div style="margin-bottom:1em;"><a href="javascript:hide_instructions()">[close]</a></div>
+	<div>
+		<u>Theorems</u> are your building blocks.  They look like sequences of colored squares.  Here are three examples:
+	</div>
+	<div></div>
+	<div>
+			<u>Rules</u> are used to create new theorems out of old theorems.  Here is an example of a rule:
+	</div>
+	<div></div>
+	<div>
+		<p>
+			Whenever a theorem matches the left side of the rule, we can use it to create the right side.  The circles match to anything, so this rule says
+		</p>
+		<p style="margin: 0 1em;">
+			If a theorem ends with <atom style="background-color:red;"></atom>, you can add a <atom style="background-color:blue;"></atom> to the end
+		</p>
+		<p>
+			Another rule is:
+		</p>
+	</div>
+	<div></div>
+	<div>
+		<p>
+			Unlike the first rule, this one begins <i>and</i> ends with a circle, which means anything can come before or after the blue squares.  This means it can work <i>anywhere</i>, not just at the end of a theorem.
+		</p>
+		<p>
+			The goal of the game is to apply rules to theorems until you create your goal.
+		</p>
+	</div>
+	`;
+	instructionsDiv.children[2].appendChild(
+		new Molecule('M', 0, false).htmlNode);
+	instructionsDiv.children[2].appendChild(
+		new Molecule('IUUMIUM', 0, false).htmlNode);
+	instructionsDiv.children[2].appendChild(
+		new Molecule('UII', 0, false).htmlNode);
+
+	instructionsDiv.children[4].appendChild(
+		new Rule("xM", "xMU", "", () => {}).div);
+	instructionsDiv.children[6].appendChild(
+		new Rule("xUUy", "xIy", "", () => {}).div);
+
+
 	// let [goal, axioms, rules] = random_problem();
 	// let it = 0;
 	// while (goal === null) {
@@ -369,7 +410,7 @@ window.onload = () => {
 	// 	[goal, axioms, rules] = random_problem();
 	// }
 
-	setup_problem('MUI', ['MI', 'MUIII', 'MMI', 'MUUM'], [
+	setup_problem('MUI', ['MI', 'MUIII', 'MMI'], [
 		new Rule("xI", "xIU", "", (molecule) => {
 			let T = molecule.symbols;
 			if (T[T.length - 1] == 'I') {
@@ -506,19 +547,34 @@ function random_problem() {
 	return [null, null, null];
 }
 
+function show_instructions() {
+	instructionsDiv.style.display = 'block';
+}
+
+function hide_instructions() {
+	instructionsDiv.style.display = 'none';
+}
+
 </script>
 </head>
 <body>
 <h2 align="center">Modus</h2>
-<div style="text-align:center;">
+<div style="display:flex; flex-direction:row; padding:0; margin:0;">
+	<flex></flex>
 	<span>Goal:</span>
 	<molecule id="goalMolecule"></molecule>
+	<flex></flex>
+</div>
+<div style="position:absolute; left:1em; top:1em;">
+	<a href="javascript:show_instructions()">How to play?</a>
 </div>
 <div style="display:flex; height:100%;">
 	<div id="rulesOfProductionDiv" style="background-color:#333;"></div>
 	<div id="theoremsDiv" style="background-color:#333; border-left:white solid 1px; flex:1;">
 		<div></div>
 	</div>
+</div>
+<div id="instructionsDiv" style="position:absolute; left:1em; top:1em; width:calc(100% - 2em); height:calc(100% - 2em); background-color:#444; opacity:0.9; padding:1em; display:none;">
 </div>
 <div id="coverDiv" style="position:absolute; left:0; top:0; width:100%; height:100%; display:none;"></div>
 </body>
